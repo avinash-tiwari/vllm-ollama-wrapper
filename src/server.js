@@ -2,10 +2,10 @@ import express from "express";
 import crypto from "node:crypto";
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json());
 
 const PORT = Number(process.env.PORT || 8000);
-const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
+const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "gemma4";
 const API_KEY = process.env.API_KEY || "";
 
@@ -60,29 +60,72 @@ function toOllamaChatRequest(body) {
 
   const options = {
     ...(body.temperature !== undefined && {
-      temperature: body.temperature
+      temperature: body.temperature,
     }),
+
     ...(body.top_p !== undefined && {
-      top_p: body.top_p
+      top_p: body.top_p,
     }),
+
+    ...(body.top_k !== undefined && {
+      top_k: body.top_k,
+    }),
+
+    ...(body.seed !== undefined && {
+      seed: body.seed,
+    }),
+
     ...(body.max_tokens !== undefined && {
-      num_predict: body.max_tokens
+      num_predict: body.max_tokens,
     }),
+
+    ...(body.max_completion_tokens !== undefined && {
+      num_predict: body.max_completion_tokens,
+    }),
+
     ...(body.stop !== undefined && {
-      stop: body.stop
-    })
+      stop: body.stop,
+    }),
+
+    ...(body.frequency_penalty !== undefined && {
+      frequency_penalty: body.frequency_penalty,
+    }),
+
+    ...(body.presence_penalty !== undefined && {
+      presence_penalty: body.presence_penalty,
+    }),
   };
 
   const request = {
     model: body.model || DEFAULT_MODEL,
+
+    // IMPORTANT:
+    // Pass messages directly. Do NOT JSON.stringify()
+    // messages or message.content here.
     messages: body.messages || [],
+
     stream: Boolean(body.stream),
-    options
   };
 
-  // vLLM guided_json -> Ollama structured output
+  if (Object.keys(options).length > 0) {
+    request.options = options;
+  }
+
+  // vLLM guided_json -> Ollama format
   if (extraBody.guided_json) {
     request.format = extraBody.guided_json;
+  }
+
+  if (body.tools) {
+    request.tools = body.tools;
+  }
+
+  if (body.keep_alive !== undefined) {
+    request.keep_alive = body.keep_alive;
+  }
+
+  if (body.think !== undefined) {
+    request.think = body.think;
   }
 
   return request;
